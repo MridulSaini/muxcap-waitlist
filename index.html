@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Muxcap — multi-stream capture without melting the laptop</title>
+  <meta name="description" content="A native layer for dual camera + screen share. Your SFU stays. Chromium stops being the mixer." />
+  <style>
+    :root {
+      --bg: #0c0f0d;
+      --bg-2: #141a16;
+      --line: #2a3530;
+      --text: #e8eee9;
+      --muted: #9aa89e;
+      --accent: #7dffb3;
+      --accent-dim: #1d3d2c;
+      --warn: #c4b48a;
+      --radius: 14px;
+      --mono: "IBM Plex Mono", "ui-monospace", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: radial-gradient(1200px 600px at 80% -10%, #1a3326 0%, transparent 50%), var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    a { color: var(--accent); }
+    .wrap { width: min(980px, calc(100% - 40px)); margin: 0 auto; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 22px 0 8px;
+    }
+    .brand {
+      font-family: var(--mono);
+      font-size: 14px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .brand span { color: var(--accent); }
+    nav { display: flex; gap: 18px; font-size: 14px; }
+    nav a { color: var(--muted); text-decoration: none; }
+    nav a:hover { color: var(--text); }
+
+    .hero { padding: 72px 0 48px; }
+    .kicker {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: clamp(34px, 6vw, 58px);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin: 0 0 18px;
+      max-width: 16ch;
+    }
+    .lede {
+      font-size: 19px;
+      color: var(--muted);
+      max-width: 42ch;
+      margin: 0 0 28px;
+    }
+    .cta-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--accent);
+      color: #062012;
+      text-decoration: none;
+      font-weight: 650;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 20px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .btn:hover { filter: brightness(1.06); }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+    .note { font-size: 13px; color: var(--muted); }
+
+    section { padding: 28px 0 8px; }
+    h2 { font-size: 22px; margin: 0 0 12px; letter-spacing: -0.02em; }
+    p { color: var(--muted); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .card {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card h3 { margin: 0 0 8px; font-size: 16px; }
+    .card ul { margin: 0; padding-left: 18px; color: var(--muted); }
+    .card li { margin: 6px 0; }
+    .ban { color: var(--warn); font-size: 14px; margin-top: 12px; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .flow .node, .flow .pipe {
+      border-radius: 12px;
+      padding: 14px 12px;
+      text-align: center;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      background: #101613;
+    }
+    .flow .pipe {
+      font-family: var(--mono);
+      color: var(--accent);
+      background: var(--accent-dim);
+      border-color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sources { display: flex; flex-direction: column; gap: 6px; }
+    .chip {
+      background: #1a221e;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    pre {
+      margin: 0;
+      background: #070a08;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      overflow: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: #d5f5e3;
+    }
+    .arrow { color: var(--muted); margin-top: 10px; font-family: var(--mono); font-size: 13px; }
+
+    form { display: grid; gap: 12px; }
+    label { font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+    input, select, textarea {
+      font: inherit;
+      color: var(--text);
+      background: #070a08;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    .form-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .status { font-size: 14px; min-height: 1.4em; }
+    .status.ok { color: var(--accent); }
+    .status.err { color: #ff8b8b; }
+
+    footer {
+      padding: 48px 0 40px;
+      color: var(--muted);
+      font-size: 13px;
+      border-top: 1px solid var(--line);
+      margin-top: 48px;
+    }
+
+    @media (max-width: 760px) {
+      .grid, .flow { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">mux<span>cap</span></div>
+      <nav>
+        <a href="#architecture">Architecture</a>
+        <a href="#beta">Commercial beta</a>
+      </nav>
+    </header>
+
+    <div class="hero">
+      <div class="kicker">Native capture · not another SFU</div>
+      <h1>Multi-stream capture without melting the laptop.</h1>
+      <p class="lede">A native layer for dual camera + screen share. Your SFU stays. Chromium stops being the mixer.</p>
+      <div class="cta-row">
+        <a class="btn" href="#beta">Join the commercial beta waitlist</a>
+        <a class="btn btn-ghost" href="#architecture">See the shape</a>
+      </div>
+    </div>
+
+    <section>
+      <h2>The failure mode</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>What the browser lets you do</h3>
+          <p>You can call <code>getUserMedia</code> twice and <code>getDisplayMedia</code> once.</p>
+          <p>The user’s fan is the product review.</p>
+        </div>
+        <div class="card">
+          <h3>What the cloud does not fix</h3>
+          <p>Cloud video companies route packets. They do not schedule two sensors and a display on a 15W laptop.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Who this is for</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Engineering teams shipping</h3>
+          <ul>
+            <li>Telehealth (patient + device + screen)</li>
+            <li>Remote industrial support (two views + tablet)</li>
+            <li>High-end virtual production in the browser</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Not for</h3>
+          <p class="ban">Exam proctoring, HR monitoring, or generic meeting bots. Those requests are declined.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <h2>Architecture</h2>
+      <p>Boxes only. The native layer is the missing piece between devices and the app you already have.</p>
+      <div class="flow" aria-label="Architecture diagram">
+        <div class="node sources">
+          <div class="chip">Camera A</div>
+          <div class="chip">Camera B</div>
+          <div class="chip">Screen</div>
+        </div>
+        <div class="pipe">native capture</div>
+        <div class="pipe">mux / align</div>
+        <div class="node">Your app → existing SFU</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Shape of the API (honest vapor)</h2>
+      <pre>createSession({
+  tracks: ["cameraA", "cameraB", "display"],
+  prefer: "gpu"
+})
+<span class="arrow">→ aligned tracks | encoded output your app already knows how to send</span></pre>
+      <p>Windows first if that is what design partners demand. Other OS when a paying spike says so.</p>
+    </section>
+
+    <section>
+      <h2>What you are not buying (yet)</h2>
+      <p>This is a waitlist for a <strong style="color:var(--text)">paid design-partner spike</strong>, not a download. No SLA. No AGPL surprise. No “AI.”</p>
+    </section>
+
+    <section id="beta">
+      <div class="card">
+        <h2>Commercial beta</h2>
+        <p>If you have a production ticket for multi-stream local capture, get in line. We will only take a few spikes.</p>
+        <form id="waitlist" novalidate>
+          <label>Work email
+            <input name="email" type="email" required autocomplete="email" placeholder="you@company.com" />
+          </label>
+          <label>Company
+            <input name="company" required placeholder="Acme Health" />
+          </label>
+          <label>Role
+            <input name="role" required placeholder="Staff engineer / VP Eng" />
+          </label>
+          <label>What you ship today
+            <select name="stack" required>
+              <option value="">Select…</option>
+              <option>Twilio</option>
+              <option>Agora</option>
+              <option>Daily</option>
+              <option>LiveKit</option>
+              <option>In-house</option>
+              <option>Other</option>
+            </select>
+          </label>
+          <label>What broke (short)
+            <textarea name="broke" required placeholder="Dual-cam + screen share thermal-throttles the clinician laptop…"></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="btn" type="submit">Request access</button>
+            <button class="btn btn-ghost" type="button" id="export">Export waitlist CSV</button>
+            <a class="note" id="calendar" hidden href="#" target="_blank" rel="noreferrer">Book 15 min</a>
+          </div>
+          <div class="status" id="status" role="status"></div>
+        </form>
+      </div>
+    </section>
+
+    <footer>
+      Personal project · Not affiliated with any employer · We decline EdTech and HR-integrity use cases
+    </footer>
+  </div>
+
+  <script>
+    /* Set these before you share the URL. Leave blank to keep waitlist on this browser only. */
+    const CONFIG = {
+      formspreeId: "",
+      calendarUrl: "",
+      waitlistMailto: ""
+    };
+
+    const KEY = "muxcap-waitlist";
+    const form = document.getElementById("waitlist");
+    const status = document.getElementById("status");
+    const calendar = document.getElementById("calendar");
+
+    if (CONFIG.calendarUrl) {
+      calendar.hidden = false;
+      calendar.href = CONFIG.calendarUrl;
+    }
+
+    function rows() {
+      try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+      catch { return []; }
+    }
+
+    function csvEscape(value) {
+      const s = String(value ?? "");
+      if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function toCsv(list) {
+      const header = ["Date", "Email", "Company", "Role", "Stack", "What broke", "ICP?", "Action"];
+      const lines = [header.join(",")];
+      for (const r of list) {
+        lines.push([
+          r.date, r.email, r.company, r.role, r.stack, r.broke, "", "waitlist"
+        ].map(csvEscape).join(","));
+      }
+      return lines.join("\r\n");
+    }
+
+    function downloadCsv(list) {
+      const blob = new Blob([toCsv(list)], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "waitlist.csv";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    document.getElementById("export").addEventListener("click", () => {
+      const list = rows();
+      if (!list.length) {
+        status.className = "status err";
+        status.textContent = "No local signups on this browser yet.";
+        return;
+      }
+      downloadCsv(list);
+      status.className = "status ok";
+      status.textContent = `Exported ${list.length} row(s). Copy into tracking/waitlist.csv.`;
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.className = "status";
+      status.textContent = "";
+
+      if (!form.reportValidity()) {
+        status.className = "status err";
+        status.textContent = "Please fill every field.";
+        return;
+      }
+
+      const data = Object.fromEntries(new FormData(form).entries());
+      const record = { date: new Date().toISOString().slice(0, 10), ...data };
+      const list = rows();
+      list.push(record);
+      localStorage.setItem(KEY, JSON.stringify(list));
+
+      if (CONFIG.formspreeId) {
+        try {
+          const res = await fetch(`https://formspree.io/f/${CONFIG.formspreeId}`, {
+            method: "POST",
+            headers: { Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+          });
+          if (!res.ok) throw new Error("formspree");
+        } catch {
+          status.className = "status err";
+          status.textContent = "Saved locally, but the remote form endpoint failed. Export CSV as backup.";
+          return;
+        }
+      } else if (CONFIG.waitlistMailto) {
+        const body = encodeURIComponent(
+          `Company: ${data.company}\nRole: ${data.role}\nStack: ${data.stack}\nWhat broke:\n${data.broke}`
+        );
+        window.location.href = `mailto:${CONFIG.waitlistMailto}?subject=${encodeURIComponent("Muxcap waitlist: " + data.company)}&body=${body}`;
+      }
+
+      form.reset();
+      status.className = "status ok";
+      status.textContent = "Request saved on this browser. Export CSV into tracking/waitlist.csv, or set Formspree in CONFIG.";
+    });
+  </script>
+</body>
+</html>
